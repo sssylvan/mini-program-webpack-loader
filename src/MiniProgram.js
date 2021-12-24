@@ -2,7 +2,6 @@ const { existsSync } = require('fs')
 const { dirname, join, extname, basename } = require('path')
 const utils = require('./utils')
 const WxPluginHelper = require('./wx/plugin')
-const FileTree = require('./FileTree')
 const { ProgressPlugin } = require('webpack')
 const loader = require('./loader')
 const MiniTemplate = require('./MiniTemplate')
@@ -11,7 +10,7 @@ const { ConcatSource, RawSource } = require('webpack-sources')
 const MultiEntryPlugin = require('webpack/lib/MultiEntryPlugin')
 const SingleEntryPlugin = require('webpack/lib/SingleEntryPlugin')
 
-const { flattenDeep, getFiles, noop } = require('./utils')
+const { flattenDeep, getFiles } = require('./utils')
 const { reslovePagesFiles } = require('./helpers/page')
 const { getEntryConfig } = require('./helpers/entry')
 const {
@@ -22,20 +21,7 @@ const {
 const {
   resolveFilesForPlugin: resolveComponentsFiles
 } = require('./helpers/component')
-const defaultOptions = {
-  extfile: true,
-  commonSubPackages: true,
-  analyze: false,
-  resources: [],
-  beforeEmit: noop,
-  compilationFinish: null,
-  forPlugin: false,
-  entry: {
-    // 入口文件的配置
-    // ignore
-    // accept
-  }
-}
+const { fileTree, setOption } = require('./data')
 
 const mainChunkNameTemplate = '__assets_chunk_name__'
 let mainChunkNameIndex = 0
@@ -46,9 +32,9 @@ module.exports = class MiniProgam {
 
     this.chunkNames = ['main']
 
-    this.options = Object.assign(defaultOptions, options)
+    this.options = setOption(options)
 
-    this.fileTree = new FileTree()
+    this.fileTree = fileTree
 
     this.helperPlugin = new WxPluginHelper(this)
   }
@@ -289,14 +275,5 @@ module.exports = class MiniProgam {
     }
 
     return ''
-  }
-
-  /**
-   *
-   * @param {*} root
-   * @param {*} files
-   */
-  otherPackageFiles (root, files) {
-    return files.filter((file) => file.indexOf(root) === -1)
   }
 }
