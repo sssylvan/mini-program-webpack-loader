@@ -4,11 +4,17 @@ const fs = require('fs')
 const readline = require('readline')
 const { dirname, join } = require('path')
 const { ConcatSource } = require('webpack-sources')
-const { util: { createHash } } = require('webpack')
+const {
+  util: { createHash }
+} = require('webpack')
 const utils = require('./utils')
 const MiniProgam = require('./MiniProgram')
 const { get: getAppJson } = require('./helpers/app')
-const { pathsInSameFolder, moduleOnlyUsedBySubPackage, pathsInSamePackage } = require('./helpers/module')
+const {
+  pathsInSameFolder,
+  moduleOnlyUsedBySubPackage,
+  pathsInSamePackage
+} = require('./helpers/module')
 const stdout = process.stdout
 
 const DEPS_MAP = {}
@@ -18,7 +24,9 @@ const ONLY_SUBPACKAGE_USED_MODULE_MAP = {}
 class MiniPlugin extends MiniProgam {
   apply (compiler) {
     if (MiniPlugin.inited) {
-      throw new Error('mini-program-webpack-loader 是一个单例插件，不支持多次实例化')
+      throw new Error(
+        'mini-program-webpack-loader 是一个单例插件，不支持多次实例化'
+      )
     }
 
     MiniPlugin.inited = true
@@ -29,11 +37,23 @@ class MiniPlugin extends MiniProgam {
     this._appending = []
 
     // hooks
-    this.compiler.hooks.environment.tap('MiniPlugin', this.setEnvHook.bind(this))
-    this.compiler.hooks.beforeCompile.tapAsync('MiniPlugin', this.beforeCompile.bind(this))
-    this.compiler.hooks.compilation.tap('MiniPlugin', this.setCompilation.bind(this))
+    this.compiler.hooks.environment.tap(
+      'MiniPlugin',
+      this.setEnvHook.bind(this)
+    )
+    this.compiler.hooks.beforeCompile.tapAsync(
+      'MiniPlugin',
+      this.beforeCompile.bind(this)
+    )
+    this.compiler.hooks.compilation.tap(
+      'MiniPlugin',
+      this.setCompilation.bind(this)
+    )
     this.compiler.hooks.emit.tapAsync('MiniPlugin', this.setEmitHook.bind(this))
-    this.compiler.hooks.additionalPass.tapAsync('MiniPlugin', this.setAdditionalPassHook.bind(this))
+    this.compiler.hooks.additionalPass.tapAsync(
+      'MiniPlugin',
+      this.setAdditionalPassHook.bind(this)
+    )
   }
 
   /**
@@ -44,13 +64,12 @@ class MiniPlugin extends MiniProgam {
   beforeCompile (params, callback) {
     if (this.hasLoaded) return callback()
 
-    this.loadEntrys(this.miniEntrys)
-      .then(() => {
-        // 设置子包的 cachegroup
-        this.options.commonSubPackages && this.setCacheGroup()
-        this.hasLoaded = true
-        callback()
-      })
+    this.loadEntrys(this.miniEntrys).then(() => {
+      // 设置子包的 cachegroup
+      this.options.commonSubPackages && this.setCacheGroup()
+      this.hasLoaded = true
+      callback()
+    })
   }
 
   /**
@@ -62,7 +81,8 @@ class MiniPlugin extends MiniProgam {
 
     // 下面两个地方都在使用 thisMessageOutPut, 先存起来
     const thisMessageOutPut = this.messageOutPut.bind(this)
-    this.compiler.watch = options => watch.call(this.compiler, this.compiler.options, thisMessageOutPut)
+    this.compiler.watch = (options) =>
+      watch.call(this.compiler, this.compiler.options, thisMessageOutPut)
     this.compiler.run = (customFunc) => {
       return run.call(this.compiler, function () {
         // 可能有自定义的回调方法，应该继承下
@@ -86,13 +106,17 @@ class MiniPlugin extends MiniProgam {
    * @param {*} compilation
    */
   setCompilation (compilation) {
-    this.helperPlugin.setCompilation && this.helperPlugin.setCompilation(compilation)
+    this.helperPlugin.setCompilation &&
+      this.helperPlugin.setCompilation(compilation)
     /**
      * 标准输出文件名称
      */
-    compilation.mainTemplate.hooks.assetPath.tap('MiniPlugin', this.getAesstPathHook.bind(this))
+    compilation.mainTemplate.hooks.assetPath.tap(
+      'MiniPlugin',
+      this.getAesstPathHook.bind(this)
+    )
 
-    compilation.hooks.additionalAssets.tapAsync('MiniPlugin', callback => {
+    compilation.hooks.additionalAssets.tapAsync('MiniPlugin', (callback) => {
       compilation.assets['webpack-require.js'] = new ConcatSource(
         fs.readFileSync(join(__dirname, './lib/require.js'), 'utf8')
       )
@@ -105,20 +129,21 @@ class MiniPlugin extends MiniProgam {
       const entryNames = [...new Set(this.entryNames)]
 
       const { outputOptions } = compilation
-      const {
-        hashFunction,
-        hashDigest,
-        hashDigestLength
-      } = outputOptions
+      const { hashFunction, hashDigest, hashDigestLength } = outputOptions
 
       const ignoreFiles = utils.flattenDeep([
         ignoreEntrys,
-        entryNames.map(name => ['.wxss', '.js', '.json'].map(ext => `${name}${ext}`))
+        entryNames.map((name) =>
+          ['.wxss', '.js', '.json'].map((ext) => `${name}${ext}`)
+        )
       ])
 
-      assetsKey.forEach(key => {
+      assetsKey.forEach((key) => {
         const source = assets[key]
-        const fileMeta = this.fileTree.getFileByDist(utils.getDistPath(key), true)
+        const fileMeta = this.fileTree.getFileByDist(
+          utils.getDistPath(key),
+          true
+        )
 
         if (ignoreFiles.indexOf(key) > -1) return
 
@@ -146,7 +171,7 @@ class MiniPlugin extends MiniProgam {
       return this._appending.length > 0
     })
 
-    compilation.hooks.optimizeChunks.tap('MiniPlugin', chunks => {
+    compilation.hooks.optimizeChunks.tap('MiniPlugin', (chunks) => {
       let ignoreEntrys = this.getIgnoreEntrys()
       for (const chunk of chunks) {
         if (chunk.hasEntryModule() && !ignoreEntrys.indexOf(chunk.name) !== 0) {
@@ -192,8 +217,13 @@ class MiniPlugin extends MiniProgam {
       /**
        * 直接替换 js 代码
        */
-      console.assert(assets[this.mainName + '.js'], `${join(this.mainContext, this.mainName + '.js')} 不应该不存在`)
-      assets['app.js'] = this.helperPlugin.getAppJsCode(assets[this.mainName + '.js'])
+      console.assert(
+        assets[this.mainName + '.js'],
+        `${join(this.mainContext, this.mainName + '.js')} 不应该不存在`
+      )
+      assets['app.js'] = this.helperPlugin.getAppJsCode(
+        assets[this.mainName + '.js']
+      )
 
       /**
        * 合并 .wxss 代码到 app.wxss
@@ -223,7 +253,11 @@ class MiniPlugin extends MiniProgam {
         delete assets[file]
       }
 
-      if (assets[file] && Array.isArray(replaceFile) && typeof replaceFile[1] === 'function') {
+      if (
+        assets[file] &&
+        Array.isArray(replaceFile) &&
+        typeof replaceFile[1] === 'function'
+      ) {
         const rFile = replaceFile[1](file)
         if (rFile !== file) {
           assets[utils.getDistPath(rFile)] = assets[file]
@@ -234,11 +268,6 @@ class MiniPlugin extends MiniProgam {
       if (ignoreEntrys.indexOf(file) > -1 || /node_modules/.test(file)) {
         delete assets[file]
       }
-    }
-
-    if (this.options.target === 'ali') {
-      assets['app.acss'] = assets['app.wxss']
-      delete assets['app.wxss']
     }
 
     this.helperPlugin.emitHook(compilation, callback)
@@ -263,7 +292,7 @@ class MiniPlugin extends MiniProgam {
           chunks: 'initial',
           minSize: 0,
           minChunks: 1,
-          test: module => moduleOnlyUsedBySubPackage(module, root + '/'),
+          test: (module) => moduleOnlyUsedBySubPackage(module, root + '/'),
           priority: 3
         }
       }
@@ -289,7 +318,11 @@ class MiniPlugin extends MiniProgam {
     readline.cursorTo(process.stdout, 0)
 
     if (+progress === 1) return
-    stdout.write(`${'正在打包: '.gray} ${`${(progress * 100).toFixed(2)}%`.green} ${event || ''} ${modules || ''}`)
+    stdout.write(
+      `${'正在打包: '.gray} ${`${(progress * 100).toFixed(2)}%`.green} ${
+        event || ''
+      } ${modules || ''}`
+    )
   }
 
   /**
@@ -308,11 +341,7 @@ class MiniPlugin extends MiniProgam {
 
     const { hash, startTime, endTime } = stat
 
-    const {
-      warnings = [],
-      errors = [],
-      assets
-    } = stat.compilation
+    const { warnings = [], errors = [], assets } = stat.compilation
     let appJson = getAppJson()
 
     let size = 0
@@ -322,17 +351,20 @@ class MiniPlugin extends MiniProgam {
     }
 
     // fs.writeFileSync('./r.json', JSON.stringify(Object.keys(assets), null, 2), 'utf-8')
-    let ot = [{
-      time: (new Date()).toLocaleTimeString().gray,
-      status: !errors.length ? 'success'.green : 'fail'.red,
-      watch: this.fileTree.size + '/' + Object.keys(assets).length,
-      page: this.fileTree.pageSize,
-      component: this.fileTree.comSize,
-      subpackage: appJson.subPackages.length + '/' + this.fileTree.subPageSize,
-      duration: ((endTime - startTime) / 1000 + 's').green,
-      size: ((size / 1024).toFixed(2) + ' k').green,
-      hash
-    }]
+    let ot = [
+      {
+        time: new Date().toLocaleTimeString().gray,
+        status: !errors.length ? 'success'.green : 'fail'.red,
+        watch: this.fileTree.size + '/' + Object.keys(assets).length,
+        page: this.fileTree.pageSize,
+        component: this.fileTree.comSize,
+        subpackage:
+          appJson.subPackages.length + '/' + this.fileTree.subPageSize,
+        duration: ((endTime - startTime) / 1000 + 's').green,
+        size: ((size / 1024).toFixed(2) + ' k').green,
+        hash
+      }
+    ]
 
     if (warnings.length) {
       ot[0].warning = (warnings.length + '').yellow
@@ -362,67 +394,117 @@ class MiniPlugin extends MiniProgam {
 
       let commonWarnings = []
       for (const key in ONLY_SUBPACKAGE_USED_MODULE_MAP) {
-        const commons = analyzeMap.onlySubPackageUsed[key] = Array.from(ONLY_SUBPACKAGE_USED_MODULE_MAP[key])
+        const commons = (analyzeMap.onlySubPackageUsed[key] = Array.from(
+          ONLY_SUBPACKAGE_USED_MODULE_MAP[key]
+        ))
 
         let otherPackageFiles = this.otherPackageFiles(key, commons)
         if (otherPackageFiles.length) {
-          commonWarnings.push(`子包 ${key.blue} 单独使用了 ${(otherPackageFiles.length + '').red} 个其他非子包内的文件`)
+          commonWarnings.push(
+            `子包 ${key.blue} 单独使用了 ${
+              (otherPackageFiles.length + '').red
+            } 个其他非子包内的文件`
+          )
         }
       }
       commonWarnings = commonWarnings.sort(compare)
 
       for (const key in DEPS_MAP) {
-        const files = analyzeMap.fileUsed[key] = Array.from(DEPS_MAP[key])
+        const files = (analyzeMap.fileUsed[key] = Array.from(DEPS_MAP[key]))
 
         if (files.length >= 20) {
-          fileWarnings.push(`文件 ${key.blue} 被引用 ${(files.length + '').red} 次`)
+          fileWarnings.push(
+            `文件 ${key.blue} 被引用 ${(files.length + '').red} 次`
+          )
         }
       }
 
       fileWarnings = fileWarnings.sort(compare)
 
       for (const key in COMPONENT_DEPS_MAP) {
-        const components = analyzeMap.componentUsed[key] = Array.from(COMPONENT_DEPS_MAP[key])
+        const components = (analyzeMap.componentUsed[key] = Array.from(
+          COMPONENT_DEPS_MAP[key]
+        ))
         const packageRoot = pathsInSamePackage(components)
 
         // 组件只在子包或者某个目录下的文件中使用，提示
-        if (packageRoot) { // 使用组件的文件在同一个子包内
+        if (packageRoot) {
+          // 使用组件的文件在同一个子包内
           let isInPackage = pathsInSamePackage([key, components[0]])
-          !isInPackage && componentWarnings.push(`自定义组件 ${key.blue} 建议移动到子包 ${packageRoot.red} 内`)
-        } else if (components.length === 1 && !pathsInSameFolder([key, ...components])) {
+          !isInPackage &&
+            componentWarnings.push(
+              `自定义组件 ${key.blue} 建议移动到子包 ${packageRoot.red} 内`
+            )
+        } else if (
+          components.length === 1 &&
+          !pathsInSameFolder([key, ...components])
+        ) {
           // 只有一个页面（组件）使用了该自定义组件
-          componentWarnings.push(`自定义组件 ${key.blue} 建议移动到 ${dirname(components[0]).red} 目录内`)
+          componentWarnings.push(
+            `自定义组件 ${key.blue} 建议移动到 ${
+              dirname(components[0]).red
+            } 目录内`
+          )
         }
       }
 
       componentWarnings = componentWarnings.sort(compare)
 
-      fileWarnings.forEach(message => console.log('提示'.yellow, message))
+      fileWarnings.forEach((message) => console.log('提示'.yellow, message))
 
       console.log('')
 
-      componentWarnings.forEach(message => console.log('提示'.yellow, message))
+      componentWarnings.forEach((message) =>
+        console.log('提示'.yellow, message)
+      )
 
       console.log('')
-      commonWarnings.length > 0 && console.log('建议检查以下子包，并移动独用文件到子包内'.red)
-      commonWarnings.forEach(message => console.log('提示'.yellow, message))
+      commonWarnings.length > 0 &&
+        console.log('建议检查以下子包，并移动独用文件到子包内'.red)
+      commonWarnings.forEach((message) => console.log('提示'.yellow, message))
 
-      if (fileWarnings.length || commonWarnings.length || componentWarnings.length) {
+      if (
+        fileWarnings.length ||
+        commonWarnings.length ||
+        componentWarnings.length
+      ) {
         console.log('')
-        console.log(`你可以在 ${join(this.compiler.context, 'analyze.json')} 中查看详细信息`.yellow)
+        console.log(
+          `你可以在 ${join(
+            this.compiler.context,
+            'analyze.json'
+          )} 中查看详细信息`.yellow
+        )
         console.log('')
-        console.log('  fileUsed'.green, '——'.gray, '文件被依赖关系。键为被依赖文件，值为依赖该文件的文件列表')
-        console.log('  componentUsed'.green, '——'.gray, '自定义组件被依赖关系。键为被依赖的组件名，值为依赖该组件的组件(页面)列表')
-        console.log('  onlySubPackageUsed'.green, '——'.gray, '子包单独使用的文件列表。键为子包名，值为该子包单独依赖的文件列表')
+        console.log(
+          '  fileUsed'.green,
+          '——'.gray,
+          '文件被依赖关系。键为被依赖文件，值为依赖该文件的文件列表'
+        )
+        console.log(
+          '  componentUsed'.green,
+          '——'.gray,
+          '自定义组件被依赖关系。键为被依赖的组件名，值为依赖该组件的组件(页面)列表'
+        )
+        console.log(
+          '  onlySubPackageUsed'.green,
+          '——'.gray,
+          '子包单独使用的文件列表。键为子包名，值为该子包单独依赖的文件列表'
+        )
         console.log('')
       }
-      fs.writeFileSync(join(this.compiler.context, 'analyze.json'), JSON.stringify(analyzeMap, null, 2), 'utf-8')
+      fs.writeFileSync(
+        join(this.compiler.context, 'analyze.json'),
+        JSON.stringify(analyzeMap, null, 2),
+        'utf-8'
+      )
     }
 
     console.log('')
     console.table(ot)
 
-    this.options.compilationFinish && this.options.compilationFinish(err, stat, appJson)
+    this.options.compilationFinish &&
+      this.options.compilationFinish(err, stat, appJson)
   }
 
   consoleMsg (messages) {

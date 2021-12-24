@@ -2,15 +2,11 @@
 const path = require('path')
 const utils = require('./utils')
 const FileTree = require('./FileTree')
-const WXLoaderHelper = require('./wx/loader')
-const AliLoaderHelper = require('./ali/loader')
-const { toTargetPath } = require('./helpers/path')
 const { resolveFilesForLoader } = require('./helpers/component')
 const { reslovePagesFiles } = require('./helpers/page')
 const { update: setAppJson } = require('./helpers/app')
 
 const tree = new FileTree()
-const isInvaildExt = ext => ['.wxml', '.wxss', '.scss', '.pcss', '.less', '.wxs'].indexOf(ext) === -1
 
 class MiniLoader {
   constructor (loader, code) {
@@ -24,13 +20,12 @@ class MiniLoader {
     // 获取文件信息
     this.fileMeta = tree.getFile(loader.resourcePath)
 
-    this.targetHelper = this.$plugin.options.target === 'ali'
-      ? new AliLoaderHelper(loader.resourcePath, this.$plugin)
-      : new WXLoaderHelper(loader.resourcePath)
-
-    this.resolve = (context, request) => new Promise((resolve, reject) => {
-      loader.resolve(context, request, (err, result) => err ? reject(err) : resolve(result))
-    })
+    this.resolve = (context, request) =>
+      new Promise((resolve, reject) => {
+        loader.resolve(context, request, (err, result) =>
+          err ? reject(err) : resolve(result)
+        )
+      })
 
     this.parser()
   }
@@ -39,17 +34,12 @@ class MiniLoader {
     /**
      * json 文件使用 jsonParser 获取依赖，其他文件使用通用获取依赖的方法
      */
-    const parserPromise = !this.fileMeta.isJson
-      ? this.normalParser()
-      : this.jsonParser()
+    const parserPromise = this.jsonParser()
 
     /**
      * 返回最终这个文件的内容
      */
-    parserPromise.then(
-      code => this.callback(null, code),
-      this.callback
-    )
+    parserPromise.then((code) => this.callback(null, code), this.callback)
   }
 
   async jsonParser () {
@@ -59,7 +49,12 @@ class MiniLoader {
     }
 
     let json = JSON.parse(this.source)
-    let { componentGenerics, usingComponents, pages = [], subPackages = [] } = json
+    let {
+      componentGenerics,
+      usingComponents,
+      pages = [],
+      subPackages = []
+    } = json
 
     /**
      * 应用配置文件，如 app.json，通知插件，对这里面的内容处理
@@ -122,48 +117,6 @@ class MiniLoader {
     files.length && this.$plugin.newFilesEntryFromLoader(files)
   }
 
-  async normalParser (reg) {
-    return this.loadNormalFileDeps(reg).then(map => {
-      let deps = []
-      let code = this.source
-      let promises = []
-
-      for (const value of map.values()) {
-        let reg = `('|")${value.origin}('|")`
-        code = code.replaceAll(reg, `"${value.replace}"`)
-
-        /**
-         * 动态添加依赖，使用 promise 是为了在所有依赖添加完成后
-         * 再调用 callback，否则后添加的依赖不会被监听
-         */
-        promises.push(
-          this.addDepsModule(value.sourcePath)
-        )
-
-        deps.push(value.sourcePath)
-      }
-
-      /**
-       * 依赖的文件添加到文件树中
-       */
-      tree.addDeps(this.fileMeta.source, deps)
-
-      /**
-       * 新文件添加到监听，不要用，这个会导致很慢
-       */
-      // this.$plugin.newFilesEntryFromLoader(deps)
-
-      /**
-       * 看看是不是需要对 wxml 文件进行处理，目前 支付宝小程序 需要处理
-       */
-      code = this.fileMeta.isWxml && this.targetHelper.transformWxml
-        ? this.targetHelper.transformWxml(code)
-        : code
-
-      return Promise.all(promises).then(() => code)
-    })
-  }
-
   addDepsModule (request) {
     return new Promise((resolve, reject) => {
       this.loader.loadModule(request, (err, src) => {
@@ -173,59 +126,6 @@ class MiniLoader {
         tree.removeFile(request)
       })
     })
-  }
-
-  async loadNormalFileDeps () {
-    let map = new Map()
-    let { isWxml, isWxss, isWxs } = this.fileMeta
-
-    if (!isWxml && !isWxs && !isWxss) {
-      console.log('webpack 配置不对哦，该插件只支持 wxml, wxss, wxs, json 的'.red)
-      return map
-    }
-
-    /**
-     * 根据文件类型获取依赖匹配的正则表达式
-     */
-    const wxmlDepsReg = /src=('|")([^"]*)('|")/g
-    const wxssDepsReg = /@import ('|")([^"].+?)('|");/g
-    const wxsDepsReg = /require\(('|")([^)]*.wxs)('|")\)/g
-    const reg = isWxml ? wxmlDepsReg : isWxss ? wxssDepsReg : wxsDepsReg
-
-    let matched = null
-
-    /**
-     * 依赖查找
-     */
-    while ((matched = reg.exec(this.source)) !== null) {
-      let dep = matched[2]
-      let ext = path.extname(dep)
-
-      /**
-       * 检查文件引用的文件是否有效
-       */
-      if (isInvaildExt(ext)) {
-        // 可以在这里对很多东西限制，比如 base 64
-        // console.log('引用了一个不认识的文件类型', ext)
-        continue
-      }
-
-      // 依赖文件的绝对路径
-      let depFile = await this.getAbsolutePath(this.context, dep)
-
-      // 文件真实路径相对当前文件的路径
-      let depPath = this.getDepPath(depFile)
-
-      if (!map.has(dep)) {
-        map.set(dep, {
-          origin: dep, // 原来代码中的依赖路径
-          replace: toTargetPath(depPath), // 替换路径
-          sourcePath: depFile // 依赖文件，用于动态添加依赖
-        })
-      }
-    }
-
-    return map
   }
 
   /**

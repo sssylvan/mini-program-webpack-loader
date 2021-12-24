@@ -5,16 +5,60 @@ const utils = require('../utils')
 const { getAssetContent } = require('./compilation')
 
 let tree = new FileTree()
-const wxNativeTags = ['view', 'scroll-view', 'swiper', 'movable-view', 'movable-aera', 'cover-view', 'cover-image', 'icon', 'text', 'rich-text', 'progress', 'button', 'checkbox', 'checkbox-group', 'form', 'input', 'label', 'picker', 'picker-view', 'picker-view-column', 'swiper-item', 'radio', 'slider', 'switch', 'textarea', 'navigator', 'functional-page-navigator', 'audio', 'image', 'video', 'camera', 'live-player', 'live-pusher', 'map', 'canvas', 'open-data', 'web-view', 'ad', 'official-account', 'template', 'wxs', 'import', 'include', 'block', 'slot']
+const wxNativeTags = [
+  'view',
+  'scroll-view',
+  'swiper',
+  'movable-view',
+  'movable-aera',
+  'cover-view',
+  'cover-image',
+  'icon',
+  'text',
+  'rich-text',
+  'progress',
+  'button',
+  'checkbox',
+  'checkbox-group',
+  'form',
+  'input',
+  'label',
+  'picker',
+  'picker-view',
+  'picker-view-column',
+  'swiper-item',
+  'radio',
+  'slider',
+  'switch',
+  'textarea',
+  'navigator',
+  'functional-page-navigator',
+  'audio',
+  'image',
+  'video',
+  'camera',
+  'live-player',
+  'live-pusher',
+  'map',
+  'canvas',
+  'open-data',
+  'web-view',
+  'ad',
+  'official-account',
+  'template',
+  'wxs',
+  'import',
+  'include',
+  'block',
+  'slot'
+]
 
 module.exports = class Xml {
   constructor (compilation, request, platform) {
     this.request = request
     this.platform = platform
     this.compilation = compilation
-    this.getDistPath = platform === 'ali'
-      ? (src) => utils.getDistPath(src).replace(/\.wxml$/, '.axml')
-      : utils.getDistPath
+    this.getDistPath = utils.getDistPath
 
     this.buff = this.loadContent(request)
   }
@@ -50,13 +94,15 @@ module.exports = class Xml {
 
     const merge = (components) => {
       for (const [tag, path] of components) {
-        !usingComponents.has(tag) && usingComponents.set(
-          tag,
-          useRelative ? utils.relative(
-            utils.getDistPath(request),
-            utils.getDistPath(path)
-          ).replace('.json', '') : path
-        )
+        !usingComponents.has(tag) &&
+          usingComponents.set(
+            tag,
+            useRelative
+              ? utils
+                .relative(utils.getDistPath(request), utils.getDistPath(path))
+                .replace('.json', '')
+              : path
+          )
       }
     }
 
@@ -81,8 +127,6 @@ module.exports = class Xml {
       if (loaded[source]) continue
 
       if (/\.wxs$/.test(source)) {
-        source = this.platform === 'ali' ? source.replace(/\.wxs$/, '.sjs') : source
-
         let originPath = utils.relative(entry, source)
         let newPath = utils.relative(this.request, source)
 
@@ -120,7 +164,8 @@ module.exports = class Xml {
 
     const jsonCode = JSON.parse(jsonStr)
 
-    const usingComponents = jsonCode.usingComponents = jsonCode.usingComponents || {}
+    const usingComponents = (jsonCode.usingComponents =
+      jsonCode.usingComponents || {})
     const genericComponents = Object.keys(jsonCode.componentGenerics || {})
 
     let hasChange = false
@@ -152,7 +197,13 @@ module.exports = class Xml {
       )
     }
 
-    undfnTags.length && console.log('\n', this.getDistPath(this.request), '中使用了未定义的自定义组件:', Array.from(new Set(undfnTags)).toString().yellow)
+    undfnTags.length &&
+      console.log(
+        '\n',
+        this.getDistPath(this.request),
+        '中使用了未定义的自定义组件:',
+        Array.from(new Set(undfnTags)).toString().yellow
+      )
   }
 
   formatComponent (handle) {
@@ -175,8 +226,8 @@ module.exports = class Xml {
        * 如果作死有这个鬼那就ooo了
        */
       if (/generic:/.test(attrKeys.join(';'))) {
-        attrKeys.forEach(key => {
-          /generic:/.test(key) && tags.push(attribs[key])
+        attrKeys.forEach((key) => {
+          ;/generic:/.test(key) && tags.push(attribs[key])
         })
       }
 

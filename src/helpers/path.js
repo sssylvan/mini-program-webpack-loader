@@ -1,44 +1,18 @@
 const { extname } = require('path')
 const CONFIG = {
-  ali: {
-    TWxs (path) {
-      return path.replace('.wxs', '.sjs')
-    },
-
-    TWxml (path) {
-      return path.replace('.wxml', '.axml')
-    },
-
-    TWxss (path) {
-      return path.replace('.wxss', '.acss')
-    },
-
-    TScss (path) {
-      return path.replace('.scss', '.acss')
-    },
-
-    TPcss (path) {
-      return path.replace('.pcss', '.acss')
-    },
-
-    TLess (path) {
-      return path.replace('.less', '.acss')
-    }
-  },
-
   wx: {
-    TScss (path) {
+    TScss(path) {
       return path.replace('.scss', '.wxss')
     },
 
-    TPcss (path) {
+    TPcss(path) {
       return path.replace('.pcss', '.wxss')
     },
 
-    TLess (path) {
+    TLess(path) {
       return path.replace('.less', '.wxss')
-    }
-  }
+    },
+  },
 }
 
 module.exports.toTargetPath = function (file) {

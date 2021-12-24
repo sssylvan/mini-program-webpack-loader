@@ -1,9 +1,4 @@
-const {
-  join,
-  isAbsolute,
-  dirname,
-  relative
-} = require('path')
+const { join, isAbsolute, dirname, relative } = require('path')
 
 /**
  * 计算文件输出路径
@@ -12,7 +7,12 @@ let sourceSet = []
 let outputPath = ''
 let compilerContext = process.cwd()
 
-exports.setDistParams = function (context, entryContexts = [], resources = [], outPath) {
+exports.setDistParams = function (
+  context,
+  entryContexts = [],
+  resources = [],
+  outPath
+) {
   /**
    * 项目依赖的目录列表，会根据这些目录计算出最后输出路径
    */
@@ -26,7 +26,7 @@ exports.camelCase = (str) => {
   let words = str.split(/[^a-zA-Z]/)
 
   return words.reduce((str, val) => {
-    str += (val[0].toUpperCase() + val.substr(1))
+    str += val[0].toUpperCase() + val.substr(1)
     return str
   }, words.shift())
 }
@@ -37,7 +37,7 @@ exports.getDistPath = function (path) {
 
   if (path === outputPath) return path
 
-  path = path.replace(/(\.\.\/)?/g, ($1) => $1 ? '_/' : '')
+  path = (path || '').replace(/(\.\.\/)?/g, ($1) => ($1 ? '_/' : ''))
 
   if (isAbsolute(path)) {
     fullPath = path
@@ -63,7 +63,10 @@ exports.getDistPath = function (path) {
 
       if (outPath && outPath.indexOf('..') === -1) {
         path = outPath
-        console.assert(!npmReg.test(path), `文件${path}路径错误：不应该还包含 node_modules`)
+        console.assert(
+          !npmReg.test(path),
+          `文件${path}路径错误：不应该还包含 node_modules`
+        )
         break
       }
     }
@@ -88,14 +91,24 @@ exports.getDistPath = function (path) {
  * @param {*} exts
  */
 const { existsSync } = require('fs')
-const EXTS = ['.js', '.ts', '.json', '.wxml', '.wxss', '.wxs', '.scss', '.pcss', '.less']
+const EXTS = [
+  '.js',
+  '.ts',
+  '.json',
+  '.wxml',
+  '.wxss',
+  '.wxs',
+  '.scss',
+  '.pcss',
+  '.less'
+]
 
 exports.getFiles = (base, path = '', exts) => {
   let files = []
 
   path = join(base, path)
 
-  for (const ext of (exts || EXTS)) {
+  for (const ext of exts || EXTS) {
     let file = path + ext
     if (existsSync(file)) files.push(file)
   }
@@ -108,7 +121,7 @@ exports.getFiles = (base, path = '', exts) => {
  * @param {Array} arr 输入数组
  */
 exports.flattenDeep = (arr) => {
-  while (arr.some(item => Array.isArray(item))) {
+  while (arr.some((item) => Array.isArray(item))) {
     arr = [].concat(...arr)
   }
   return arr
@@ -117,7 +130,7 @@ exports.flattenDeep = (arr) => {
 exports.setMapValue = (origin, protertyName, value) => {
   let proterty = origin[protertyName]
   if (!proterty) {
-    let proterty = origin[protertyName] = new Set()
+    let proterty = (origin[protertyName] = new Set())
     proterty.add(value)
   } else {
     proterty.add(value)
@@ -132,10 +145,14 @@ exports.setMapValue = (origin, protertyName, value) => {
  * 3. entry: { app1: 'path/entry1.json', app2: 'path/entry2.json', index: 'path/index.js' } => [ 'path/entry1.json', 'path/entry2.json' ]
  * @param {Array} chunkNames 被忽略的 chunk
  */
-exports.formatEntry = (context = process.cwd(), entry = [], chunkNames = []) => {
+exports.formatEntry = (
+  context = process.cwd(),
+  entry = [],
+  chunkNames = []
+) => {
   let miniEntrys = []
 
-  let getEntry = entry => {
+  let getEntry = (entry) => {
     entry = isAbsolute(entry) ? entry : join(context, entry)
     if (!existsSync(entry)) throw new Error('找不到文件：', entry)
 
@@ -143,7 +160,7 @@ exports.formatEntry = (context = process.cwd(), entry = [], chunkNames = []) => 
   }
 
   if (Array.isArray(entry)) {
-    entry.forEach(item => {
+    entry.forEach((item) => {
       if (/\.json/.test(item)) {
         miniEntrys.push(getEntry(item))
       }
@@ -188,7 +205,7 @@ exports.formatSource = function (entryContexts = [], resources = []) {
   /**
    * 项目依赖的目录列表，会根据这些目录计算出最后输出路径
    */
-  const entryDirs = entryContexts.map(entry => dirname(entry))
+  const entryDirs = entryContexts.map((entry) => dirname(entry))
   const sourceSet = new Set([...entryDirs, ...resources])
   const sources = Array.from(sourceSet)
 
@@ -226,14 +243,14 @@ exports.formatSource = function (entryContexts = [], resources = []) {
 
     let paths = []
 
-    keys.forEach(key => {
+    keys.forEach((key) => {
       if (key === 'isEndPoint') return
 
       let res = resolvePath(tree[key], key)
       if (res.length === 0) {
         res = [key]
       } else {
-        res = res.map(item => join(key, item))
+        res = res.map((item) => join(key, item))
       }
       paths = paths.concat(res)
     })
@@ -267,7 +284,10 @@ module.exports.createResolver = function (compiler) {
   const resolver = ResolverFactory.createResolver(
     Object.assign(
       {
-        fileSystem: new CachedInputFileSystem(new NodeJsInputFileSystem(), 4000),
+        fileSystem: new CachedInputFileSystem(
+          new NodeJsInputFileSystem(),
+          4000
+        ),
         extensions: ['.js', '.json']
       },
       compiler.options.resolve
@@ -276,7 +296,9 @@ module.exports.createResolver = function (compiler) {
 
   return (context, request) => {
     return new Promise((resolve, reject) => {
-      resolver.resolve({}, context, request, {}, (err, res) => err ? reject(err) : resolve(res))
+      resolver.resolve({}, context, request, {}, (err, res) =>
+        err ? reject(err) : resolve(res)
+      )
     })
   }
 }

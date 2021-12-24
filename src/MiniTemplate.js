@@ -2,8 +2,7 @@ const { join } = require('path')
 const utils = require('./utils')
 const {
   ConcatSource,
-  RawSource,
-  PrefixSource
+  RawSource
 } = require('webpack-sources')
 const FileTree = require('./FileTree')
 const requireCode = require('./lib/require')
