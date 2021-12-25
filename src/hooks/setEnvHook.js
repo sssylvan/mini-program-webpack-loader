@@ -2,12 +2,12 @@ const fs = require('fs')
 const {
   pathsInSameFolder,
   pathsInSamePackage
-} = require('./helpers/module')
+} = require('../helpers/module')
 const { dirname, join } = require('path')
-const { get: getAppJson } = require('./helpers/app')
-const { fileTree } = require('./data')
+const { get: getAppJson } = require('../helpers/app')
+const { fileTree } = require('../shared/data')
 
-const { DEPS_MAP, options } = require('./data')
+const { DEPS_MAP, options } = require('../shared/data')
 const COMPONENT_DEPS_MAP = {}
 const ONLY_SUBPACKAGE_USED_MODULE_MAP = {}
 let context
