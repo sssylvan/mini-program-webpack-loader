@@ -15,8 +15,8 @@ const {
 } = require('./helpers/module')
 const stdout = process.stdout
 
-const { DEPS_MAP } = require('./data')
-const { setEnvHook } = require('./setEnvHook')
+const { DEPS_MAP } = require('./shared/data')
+const { setEnvHook } = require('./hooks/setEnvHook')
 
 class MiniPlugin extends MiniProgam {
   apply (compiler) {

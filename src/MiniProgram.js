@@ -21,7 +21,7 @@ const {
 const {
   resolveFilesForPlugin: resolveComponentsFiles
 } = require('./helpers/component')
-const { fileTree, setOption } = require('./data')
+const { fileTree, setOption } = require('./shared/data')
 
 const mainChunkNameTemplate = '__assets_chunk_name__'
 let mainChunkNameIndex = 0
