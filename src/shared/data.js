@@ -44,4 +44,3 @@ module.exports = {
   chunkNames,
   entryNames
 }
-console.log(this)

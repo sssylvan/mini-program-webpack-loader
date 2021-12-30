@@ -9,7 +9,6 @@ const {
 } = require('webpack')
 const utils = require('./utils')
 const MiniProgam = require('./MiniProgram')
-const { get: getAppJson } = require('./helpers/app')
 const {
   moduleOnlyUsedBySubPackage
 } = require('./helpers/module')
@@ -17,6 +16,7 @@ const stdout = process.stdout
 
 const { DEPS_MAP } = require('./shared/data')
 const { setEnvHook } = require('./hooks/setEnvHook')
+const { beforeCompile, getMain } = require('./hooks/beforeCompile')
 
 class MiniPlugin extends MiniProgam {
   apply (compiler) {
@@ -40,7 +40,7 @@ class MiniPlugin extends MiniProgam {
     )
     this.compiler.hooks.beforeCompile.tapAsync(
       'MiniPlugin',
-      this.beforeCompile.bind(this)
+      (params, callback) => beforeCompile(compiler, params, callback)
     )
     this.compiler.hooks.compilation.tap(
       'MiniPlugin',
@@ -51,22 +51,6 @@ class MiniPlugin extends MiniProgam {
       'MiniPlugin',
       this.setAdditionalPassHook.bind(this)
     )
-  }
-
-  /**
-   * 根据入口文件进行构建依赖
-   * @param {*} params
-   * @param {*} callback
-   */
-  beforeCompile (params, callback) {
-    if (this.hasLoaded) return callback()
-
-    this.loadEntrys(this.miniEntrys).then(() => {
-      // 设置子包的 cachegroup
-      this.options.commonSubPackages && this.setCacheGroup()
-      this.hasLoaded = true
-      callback()
-    })
   }
 
   /**
@@ -182,7 +166,7 @@ class MiniPlugin extends MiniProgam {
   setEmitHook (compilation, callback) {
     let ignoreEntrys = this.getIgnoreEntrys()
     let assets = compilation.assets
-
+    const { mainName, mainContext } = getMain()
     if (!this.options.forPlugin) {
       /**
        * 合并 app.json
@@ -194,11 +178,11 @@ class MiniPlugin extends MiniProgam {
        * 直接替换 js 代码
        */
       console.assert(
-        assets[this.mainName + '.js'],
-        `${join(this.mainContext, this.mainName + '.js')} 不应该不存在`
+        assets[mainName + '.js'],
+        `${join(mainContext, mainName + '.js')} 不应该不存在`
       )
       assets['app.js'] = this.helperPlugin.getAppJsCode(
-        assets[this.mainName + '.js']
+        assets[mainName + '.js']
       )
 
       /**
@@ -247,32 +231,6 @@ class MiniPlugin extends MiniProgam {
     }
 
     this.helperPlugin.emitHook(compilation, callback)
-  }
-
-  setCacheGroup () {
-    let appJson = getAppJson()
-    let cachegroups = this.compiler.options.optimization.splitChunks.cacheGroups
-
-    if (this.options.setSubPackageCacheGroup) {
-      let groups = this.options.setSubPackageCacheGroup(this, appJson)
-      Object.assign(cachegroups, groups)
-      return
-    }
-
-    if (appJson.subPackages) {
-      for (const { root } of appJson.subPackages) {
-        let name = root.replace('/', '')
-
-        cachegroups[`${name}Commons`] = {
-          name: `${root}/commonchunks`,
-          chunks: 'initial',
-          minSize: 0,
-          minChunks: 1,
-          test: (module) => moduleOnlyUsedBySubPackage(module, root + '/'),
-          priority: 3
-        }
-      }
-    }
   }
 
   /**

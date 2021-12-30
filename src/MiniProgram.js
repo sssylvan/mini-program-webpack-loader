@@ -1,5 +1,5 @@
 const { existsSync } = require('fs')
-const { dirname, join, extname, basename } = require('path')
+const { join } = require('path')
 const utils = require('./utils')
 const WxPluginHelper = require('./wx/plugin')
 const { ProgressPlugin } = require('webpack')
@@ -7,36 +7,28 @@ const loader = require('./loader')
 const MiniTemplate = require('./MiniTemplate')
 
 const { ConcatSource, RawSource } = require('webpack-sources')
-const MultiEntryPlugin = require('webpack/lib/MultiEntryPlugin')
-const SingleEntryPlugin = require('webpack/lib/SingleEntryPlugin')
 
-const { flattenDeep, getFiles } = require('./utils')
-const { reslovePagesFiles } = require('./helpers/page')
-const { getEntryConfig } = require('./helpers/entry')
-const {
-  update: setAppJson,
-  get: getAppJson,
-  getTabBarIcons
-} = require('./helpers/app')
-const {
-  resolveFilesForPlugin: resolveComponentsFiles
-} = require('./helpers/component')
-const { fileTree, setOption } = require('./shared/data')
+const { flattenDeep } = require('./utils')
+const { get: getAppJson } = require('./helpers/app')
+const { fileTree, setOption, chunkNames, setMiniEntrys, entryNames: enNames } = require('./shared/data')
 
-const mainChunkNameTemplate = '__assets_chunk_name__'
-let mainChunkNameIndex = 0
+const { getEntryConfig, loadEntrys, addEntrys } = require('./hooks/beforeCompile')
 
 module.exports = class MiniProgam {
   constructor (options) {
     global.MINI_PROGRAM_PLUGIN = this
 
-    this.chunkNames = ['main']
+    this.chunkNames = chunkNames
 
     this.options = setOption(options)
 
     this.fileTree = fileTree
 
     this.helperPlugin = new WxPluginHelper(this)
+    this.getEntryConfig = getEntryConfig
+    this.loadEntrys = loadEntrys
+    this.addEntrys = addEntrys
+    this.entryNames = enNames
   }
 
   apply (compiler) {
@@ -53,16 +45,10 @@ module.exports = class MiniProgam {
 
     this.helperPlugin.apply(compiler)
 
-    this.resolver = utils.createResolver(compiler)
-
     /**
      * 小程序入口文件
      */
-    this.miniEntrys = utils.formatEntry(
-      compiler.context,
-      compiler.options.entry,
-      this.chunkNames
-    )
+    this.miniEntrys = setMiniEntrys(compiler)
 
     // 设置计算打包后路径需要的参数（在很多地方需要使用）
     utils.setDistParams(
@@ -89,7 +75,7 @@ module.exports = class MiniProgam {
 
   getAppWxss (compilation) {
     let ext = '.wxss'
-    let entryNames = [...new Set(this.entryNames)]
+    let entryNames = [...new Set(enNames)]
     let wxssCode = ''
 
     entryNames.forEach((name) => {
@@ -106,7 +92,7 @@ module.exports = class MiniProgam {
     /**
      * 多个入口，所有文件对应的原始文件将被丢弃
      */
-    let entryNames = [...new Set(this.entryNames)]
+    let entryNames = [...new Set(enNames)]
 
     if (this.options.forPlugin) {
       entryNames.splice(entryNames.indexOf('plugin'))
@@ -127,136 +113,6 @@ module.exports = class MiniProgam {
     )
 
     return entryNames
-  }
-
-  addEntrys (context, files) {
-    let assetFiles = []
-    let scriptFiles = []
-
-    files = flattenDeep(files)
-
-    files.forEach((file) =>
-      /\.[j|t]s$/.test(file) ? scriptFiles.push(file) : assetFiles.push(file)
-    )
-
-    this.addAssetsEntry(context, assetFiles)
-    this.addScriptEntry(context, scriptFiles)
-  }
-
-  addAssetsEntry (context, entrys) {
-    let chunkName = mainChunkNameTemplate + mainChunkNameIndex
-    this.chunkNames.push(chunkName)
-    new MultiEntryPlugin(context, entrys, chunkName).apply(this.compiler)
-
-    // 自动生成
-    mainChunkNameIndex++
-  }
-
-  addScriptEntry (context, entrys) {
-    for (const entry of entrys) {
-      let fileName = utils.getDistPath(entry).replace(extname(entry), '')
-      new SingleEntryPlugin(context, entry, fileName).apply(this.compiler)
-    }
-  }
-
-  async getEntryConfig (entry, config) {
-    let entryConfig = this.options.entry[entry]
-    if (!entryConfig) return config
-
-    return await getEntryConfig(entryConfig, config)
-  }
-
-  async loadEntrys (entry) {
-    let index = 0
-    let componentFiles = {}
-
-    this.entryNames = []
-
-    for (const entryPath of entry) {
-      const itemContext = dirname(entryPath)
-      const fileName = basename(entryPath, '.json')
-
-      this.entryNames.push(fileName)
-
-      /**
-       * 主入口
-       */
-      if (index === 0) {
-        this.mainEntry = entryPath
-        this.mainContext = itemContext
-        this.mainName = fileName
-        index++
-      }
-
-      /**
-       * 获取配置信息，并设置，因为设置分包引用提取，需要先设置好
-       */
-      const config = await this.getEntryConfig(entryPath, require(entryPath))
-
-      setAppJson(config, entryPath, entryPath === this.mainEntry)
-
-      /**
-       * 添加页面
-       */
-      let pageFiles = reslovePagesFiles(config, itemContext, this.options)
-
-      /**
-       * 入口文件只打包对应的 wxss 文件
-       */
-      let entryFiles = getFiles(itemContext, fileName, [
-        '.wxss',
-        '.scss',
-        '.less'
-      ])
-
-      /**
-       * 添加所有与这个 json 文件相关的 page 文件和 app 文件到编译中
-       */
-      this.addEntrys(itemContext, [pageFiles, entryFiles, entryPath])
-
-      this.fileTree.setFile(entryFiles, true /* ignore */)
-      this.fileTree.addEntry(entryPath)
-      ;(config.usingComponents || config.publicComponents) &&
-        pageFiles.push(entryPath)
-
-      componentFiles[itemContext] = (componentFiles[itemContext] || []).concat(
-        pageFiles.filter((file) => this.fileTree.getFile(file).isJson)
-      )
-    }
-
-    let tabBar = getAppJson().tabBar
-    let extfile = this.options.extfile
-
-    let entrys = [
-      getFiles(this.mainContext, 'project.config', ['.json']), // project.config.json
-      extfile === true ? getFiles(this.mainContext, 'ext', ['.json']) : [], // ext.json 只有 extfile 为 true 的时候才加载主包的 ext.json
-      getFiles(this.mainContext, this.mainName, ['.js', '.ts']) // 打包主入口对应的 js 文件
-    ]
-
-    // tabBar icons
-    entrys = entrys.concat(
-      (tabBar &&
-        tabBar.list &&
-        getTabBarIcons(this.mainContext, tabBar.list)) ||
-        []
-    )
-
-    this.fileTree.setFile(flattenDeep(entrys))
-
-    this.addEntrys(this.mainContext, entrys)
-
-    return Promise.all(
-      Object.keys(componentFiles).map((context) => {
-        let componentSet = new Set()
-
-        return resolveComponentsFiles(
-          this.resolver,
-          componentFiles[context],
-          componentSet,
-          this.options
-        ).then(() => this.addEntrys(context, Array.from(componentSet)))
-      })
-    )
   }
 
   /**
