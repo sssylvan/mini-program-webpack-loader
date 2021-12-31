@@ -31,6 +31,8 @@ exports.camelCase = (str) => {
   }, words.shift())
 }
 
+exports.compilerContext = compilerContext
+
 exports.getDistPath = function (path) {
   let fullPath = compilerContext
   let npmReg = /node_modules/g

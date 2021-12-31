@@ -7,7 +7,7 @@ const MiniTemplate = require('./MiniTemplate')
 const { get: getAppJson } = require('./helpers/app')
 const { fileTree, setOption, chunkNames, setMiniEntrys, entryNames: enNames } = require('./shared/data')
 
-const { getEntryConfig, loadEntrys, addEntrys } = require('./hooks/beforeCompile')
+const { getEntryConfig, loadEntrys } = require('./hooks/beforeCompile')
 
 module.exports = class MiniProgam {
   constructor (options) {
@@ -21,14 +21,13 @@ module.exports = class MiniProgam {
 
     this.getEntryConfig = getEntryConfig
     this.loadEntrys = loadEntrys
-    this.addEntrys = addEntrys
     this.entryNames = enNames
   }
 
   apply (compiler) {
     this.compiler = compiler
     this.outputPath = compiler.options.output.path
-    this.compilerContext = join(compiler.context, 'src')
+    const compilerContext = join(compiler.context, 'src')
 
     // 向 loader 中传递插件实例
     loader.$applyPluginInstance(this)
@@ -44,7 +43,7 @@ module.exports = class MiniProgam {
 
     // 设置计算打包后路径需要的参数（在很多地方需要使用）
     utils.setDistParams(
-      this.compilerContext,
+      compilerContext,
       this.miniEntrys,
       this.options.resources,
       this.outputPath
