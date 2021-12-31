@@ -3,7 +3,7 @@ const Xml = require('../helpers/wxml')
 
 let tree = new FileTree()
 
-module.exports = async function (compilation, plugin) {
+module.exports = async function (compilation) {
   let assetkeys = Object.keys(compilation.assets)
 
   assetkeys.forEach(key => {

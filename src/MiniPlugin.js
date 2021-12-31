@@ -14,9 +14,10 @@ const {
 } = require('./helpers/module')
 const stdout = process.stdout
 
-const { DEPS_MAP } = require('./shared/data')
+const { DEPS_MAP, getIgnoreEntrys } = require('./shared/data')
+const { setEmitHook } = require('./hooks/setEmitHook')
 const { setEnvHook } = require('./hooks/setEnvHook')
-const { beforeCompile, getMain } = require('./hooks/beforeCompile')
+const { beforeCompile } = require('./hooks/beforeCompile')
 
 class MiniPlugin extends MiniProgam {
   apply (compiler) {
@@ -46,7 +47,7 @@ class MiniPlugin extends MiniProgam {
       'MiniPlugin',
       this.setCompilation.bind(this)
     )
-    this.compiler.hooks.emit.tapAsync('MiniPlugin', this.setEmitHook.bind(this))
+    this.compiler.hooks.emit.tapAsync('MiniPlugin', (compilation, callback) => setEmitHook(compilation, callback))
     this.compiler.hooks.additionalPass.tapAsync(
       'MiniPlugin',
       this.setAdditionalPassHook.bind(this)
@@ -66,8 +67,6 @@ class MiniPlugin extends MiniProgam {
    * @param {*} compilation
    */
   setCompilation (compilation) {
-    this.helperPlugin.setCompilation &&
-      this.helperPlugin.setCompilation(compilation)
     /**
      * 标准输出文件名称
      */
@@ -85,7 +84,7 @@ class MiniPlugin extends MiniProgam {
 
     compilation.hooks.optimizeAssets.tap('MiniPlugin', (assets) => {
       const assetsKey = Object.keys(assets)
-      const ignoreEntrys = this.getIgnoreEntrys()
+      const ignoreEntrys = getIgnoreEntrys()
       const entryNames = [...new Set(this.entryNames)]
 
       const { outputOptions } = compilation
@@ -132,7 +131,7 @@ class MiniPlugin extends MiniProgam {
     })
 
     compilation.hooks.optimizeChunks.tap('MiniPlugin', (chunks) => {
-      let ignoreEntrys = this.getIgnoreEntrys()
+      let ignoreEntrys = getIgnoreEntrys()
       for (const chunk of chunks) {
         if (chunk.hasEntryModule() && !ignoreEntrys.indexOf(chunk.name) !== 0) {
           // 记录模块之间依赖关系
@@ -161,76 +160,6 @@ class MiniPlugin extends MiniProgam {
     }
     this._appending = []
     callback()
-  }
-
-  setEmitHook (compilation, callback) {
-    let ignoreEntrys = this.getIgnoreEntrys()
-    let assets = compilation.assets
-    const { mainName, mainContext } = getMain()
-    if (!this.options.forPlugin) {
-      /**
-       * 合并 app.json
-       */
-      assets['app.json'] = this.helperPlugin.getAppJsonCode()
-
-      console.assert(assets['app.json'], 'app.json 不应该为空')
-      /**
-       * 直接替换 js 代码
-       */
-      console.assert(
-        assets[mainName + '.js'],
-        `${join(mainContext, mainName + '.js')} 不应该不存在`
-      )
-      assets['app.js'] = this.helperPlugin.getAppJsCode(
-        assets[mainName + '.js']
-      )
-
-      /**
-       * 合并 .wxss 代码到 app.wxss
-       */
-      assets['app.wxss'] = this.getAppWxss(compilation)
-    } else {
-      assets['plugin.json'] = this.helperPlugin.getPluginJsonCode()
-    }
-
-    /**
-     * ext.json 如果是字符串并且存在则读取文件
-     */
-    if (typeof this.options.extfile === 'string') {
-      assets['ext.json'] = this.getExtJson()
-    }
-
-    /**
-     * 检查一些 js 文件路径
-     */
-    for (const file in assets) {
-      const { replaceFile } = this.options
-
-      let tempFile = utils.getDistPath(file)
-
-      if (tempFile !== file) {
-        assets[tempFile] = assets[file]
-        delete assets[file]
-      }
-
-      if (
-        assets[file] &&
-        Array.isArray(replaceFile) &&
-        typeof replaceFile[1] === 'function'
-      ) {
-        const rFile = replaceFile[1](file)
-        if (rFile !== file) {
-          assets[utils.getDistPath(rFile)] = assets[file]
-          delete assets[file]
-        }
-      }
-
-      if (ignoreEntrys.indexOf(file) > -1 || /node_modules/.test(file)) {
-        delete assets[file]
-      }
-    }
-
-    this.helperPlugin.emitHook(compilation, callback)
   }
 
   /**

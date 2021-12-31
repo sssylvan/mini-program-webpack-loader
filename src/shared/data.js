@@ -1,6 +1,7 @@
 const FileTree = require('../FileTree')
 const { noop } = require('../utils')
 const utils = require('../utils')
+const { flattenDeep } = require('../utils')
 
 const DEPS_MAP = {}
 const fileTree = new FileTree()
@@ -23,6 +24,26 @@ const miniEntrys = []
 const chunkNames = ['main']
 const entryNames = []
 
+function getIgnoreEntrys () {
+  /**
+   * 多个入口，所有文件对应的原始文件将被丢弃
+   */
+  let eNames = [...new Set(entryNames)]
+  eNames = eNames.map((name) => {
+    if (name === 'app') return []
+    return ['.json', '.wxss', '.js'].map((ext) => name + ext)
+  })
+  eNames = flattenDeep(eNames)
+  /**
+   * 静态资源的主文件
+   */
+  eNames = eNames.concat(
+    chunkNames.map((chunkName) => chunkName + '.js')
+  )
+
+  return eNames
+}
+
 module.exports = {
   DEPS_MAP,
   fileTree,
@@ -42,5 +63,6 @@ module.exports = {
     return miniEntrys
   },
   chunkNames,
-  entryNames
+  entryNames,
+  getIgnoreEntrys
 }

@@ -1,14 +1,9 @@
-const { existsSync } = require('fs')
 const { join } = require('path')
 const utils = require('./utils')
-const WxPluginHelper = require('./wx/plugin')
 const { ProgressPlugin } = require('webpack')
 const loader = require('./loader')
 const MiniTemplate = require('./MiniTemplate')
 
-const { ConcatSource, RawSource } = require('webpack-sources')
-
-const { flattenDeep } = require('./utils')
 const { get: getAppJson } = require('./helpers/app')
 const { fileTree, setOption, chunkNames, setMiniEntrys, entryNames: enNames } = require('./shared/data')
 
@@ -24,7 +19,6 @@ module.exports = class MiniProgam {
 
     this.fileTree = fileTree
 
-    this.helperPlugin = new WxPluginHelper(this)
     this.getEntryConfig = getEntryConfig
     this.loadEntrys = loadEntrys
     this.addEntrys = addEntrys
@@ -43,8 +37,6 @@ module.exports = class MiniProgam {
     new MiniTemplate(this).apply(compiler)
     new ProgressPlugin({ handler: this.progress }).apply(compiler)
 
-    this.helperPlugin.apply(compiler)
-
     /**
      * 小程序入口文件
      */
@@ -61,58 +53,6 @@ module.exports = class MiniProgam {
 
   getGlobalComponents () {
     return this.appJsonCode.usingComponents || {}
-  }
-
-  getExtJson () {
-    if (!existsSync(this.options.extfile)) {
-      console.warn(`${this.options.extfile} 文件找不到`)
-      return new ConcatSource(JSON.stringify({}, null, 2))
-    }
-
-    let ext = require(this.options.extfile)
-    return new ConcatSource(JSON.stringify(ext, null, 2))
-  }
-
-  getAppWxss (compilation) {
-    let ext = '.wxss'
-    let entryNames = [...new Set(enNames)]
-    let wxssCode = ''
-
-    entryNames.forEach((name) => {
-      let code = compilation.assets[name + ext]
-      if (code) {
-        wxssCode += `/************ ${name + ext} *************/\n`
-        wxssCode += code.source().toString()
-      }
-    })
-    return new RawSource(wxssCode)
-  }
-
-  getIgnoreEntrys () {
-    /**
-     * 多个入口，所有文件对应的原始文件将被丢弃
-     */
-    let entryNames = [...new Set(enNames)]
-
-    if (this.options.forPlugin) {
-      entryNames.splice(entryNames.indexOf('plugin'))
-    }
-
-    entryNames = entryNames.map((name) => {
-      if (name === 'app') return []
-      return ['.json', '.wxss', '.js'].map((ext) => name + ext)
-    })
-
-    entryNames = flattenDeep(entryNames)
-
-    /**
-     * 静态资源的主文件
-     */
-    entryNames = entryNames.concat(
-      this.chunkNames.map((chunkName) => chunkName + '.js')
-    )
-
-    return entryNames
   }
 
   /**
