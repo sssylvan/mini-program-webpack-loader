@@ -25,7 +25,6 @@ function filterPackages (packages, returnTure) {
  * @param {*} entry
  */
 module.exports.reslovePagesFiles = function ({ pages = [], subPackages = [] }, context, options = {}) {
-  const { replaceFile } = options
 
   // 插件是对象形式的
   if (!Array.isArray(pages)) {
@@ -40,10 +39,6 @@ module.exports.reslovePagesFiles = function ({ pages = [], subPackages = [] }, c
 
   newPages.forEach(({ page, isSubPkg, isIndependent }) => {
     let files = getFiles(context, page)
-
-    if (Array.isArray(replaceFile) && typeof replaceFile[0] === 'function') {
-      files = files.map(replaceFile[0])
-    }
 
     files.forEach(file => !tree.has(file) && result.push(file))
 

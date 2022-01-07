@@ -1,46 +1,66 @@
 require('console.table')
 require('colors')
 const readline = require('readline')
-const MiniProgam = require('./MiniProgram')
-const {
-  moduleOnlyUsedBySubPackage
-} = require('./helpers/module')
+const { moduleOnlyUsedBySubPackage } = require('./helpers/module')
 const stdout = process.stdout
 
 const { setEmitHook } = require('./hooks/setEmitHook')
 const { setEnvHook } = require('./hooks/setEnvHook')
 const { beforeCompile } = require('./hooks/beforeCompile')
-const { setAppending, setCompilation, setAdditionalPassHook } = require('./hooks/setCompilation')
+const {
+  setCompilation,
+  setAdditionalPassHook
+} = require('./hooks/setCompilation')
+const { join } = require('path')
+const utils = require('./utils')
+const { ProgressPlugin } = require('webpack')
+const MiniTemplate = require('./MiniTemplate')
 
-class MiniPlugin extends MiniProgam {
+const { get: getAppJson } = require('./helpers/app')
+const { setMiniEntrys } = require('./shared/data')
+
+class MiniPlugin {
   apply (compiler) {
-    if (MiniPlugin.inited) {
-      throw new Error(
-        'mini-program-webpack-loader 是一个单例插件，不支持多次实例化'
-      )
-    }
-
-    MiniPlugin.inited = true
-
     this.moduleOnlyUsedBySubPackage = moduleOnlyUsedBySubPackage
 
-    super.apply(compiler)
+    this.compiler = compiler
+    this.outputPath = compiler.options.output.path
+    const compilerContext = join(compiler.context, 'src')
+
+    // 使用模板插件，用于设置输出格式
+    new MiniTemplate(this).apply(compiler)
+    new ProgressPlugin({ handler: this.progress }).apply(compiler)
+
+    /**
+     * 小程序入口文件
+     */
+    this.miniEntrys = setMiniEntrys(compiler)
+
+    // 设置计算打包后路径需要的参数（在很多地方需要使用）
+    utils.setDistParams(
+      compilerContext,
+      this.miniEntrys,
+      undefined,
+      this.outputPath
+    )
 
     // hooks
-    this.compiler.hooks.environment.tap('MiniPlugin', () => setEnvHook(compiler))
-    this.compiler.hooks.beforeCompile.tapAsync('MiniPlugin', (params, callback) => beforeCompile(compiler, params, callback))
-    this.compiler.hooks.compilation.tap('MiniPlugin', (compilation, callback) => setCompilation(compilation, callback))
-    this.compiler.hooks.emit.tapAsync('MiniPlugin', (compilation, callback) => setEmitHook(compilation, callback))
-    this.compiler.hooks.additionalPass.tapAsync('MiniPlugin', (callback) => setAdditionalPassHook(callback)
+    this.compiler.hooks.environment.tap('MiniPlugin', () =>
+      setEnvHook(compiler)
     )
-  }
-
-  /**
-   * 添加下一次编译新增的文件
-   * @param {*} files
-   */
-  newFilesEntryFromLoader (files) {
-    setAppending(files)
+    this.compiler.hooks.beforeCompile.tapAsync(
+      'MiniPlugin',
+      (params, callback) => beforeCompile(compiler, params, callback)
+    )
+    this.compiler.hooks.compilation.tap('MiniPlugin', (compilation, callback) =>
+      setCompilation(compilation, callback)
+    )
+    this.compiler.hooks.emit.tapAsync('MiniPlugin', (compilation, callback) =>
+      setEmitHook(compilation, callback)
+    )
+    this.compiler.hooks.additionalPass.tapAsync('MiniPlugin', (callback) =>
+      setAdditionalPassHook(callback)
+    )
   }
 
   /**
@@ -59,6 +79,24 @@ class MiniPlugin extends MiniProgam {
         event || ''
       } ${modules || ''}`
     )
+  }
+
+  /**
+   * 获取路径所在的 package root
+   * @param {String} path
+   */
+  getPathRoot (path) {
+    let { subPackages } = getAppJson()
+
+    for (const { root } of subPackages) {
+      let match = path.match(root)
+
+      if (match !== null && match.index === 0) {
+        return root
+      }
+    }
+
+    return ''
   }
 }
 

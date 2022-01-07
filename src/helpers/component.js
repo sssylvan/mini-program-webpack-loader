@@ -61,7 +61,6 @@ async function componentFiles (resolver, request, content, options = {}, normalC
   let asserts = []
 
   const handelComponent = async (key, component) => {
-    const { replaceFile } = options
     // let rFiles = []
 
     /**
@@ -76,10 +75,6 @@ async function componentFiles (resolver, request, content, options = {}, normalC
     // }
 
     let files = getConponentFiles(componentPath)
-
-    if (Array.isArray(replaceFile) && typeof replaceFile[0] === 'function') {
-      files = files.map(replaceFile[0])
-    }
 
     /**
      * 这里实际上是不能确定文件是不是成功添加到编译中的
