@@ -50,7 +50,7 @@ class MiniPlugin {
     // hooks
     this.compiler.hooks.environment.tap('MiniPlugin', () => setEnvHook(compiler))
 
-    this.compiler.hooks.beforeCompile.tapAsync('MiniPlugin', (params, callback) => beforeCompile(compiler, params, callback)
+    this.compiler.hooks.beforeCompile.tapAsync('MiniPlugin', (_, callback) => beforeCompile(compiler, callback)
     )
     this.compiler.hooks.compilation.tap('MiniPlugin', (compilation, callback) =>
       setCompilation(compilation, callback)

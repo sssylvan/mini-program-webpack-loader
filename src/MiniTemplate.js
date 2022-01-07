@@ -4,10 +4,8 @@ const {
   ConcatSource,
   RawSource
 } = require('webpack-sources')
-const FileTree = require('./FileTree')
 const requireCode = require('./lib/require')
 
-let tree = new FileTree()
 module.exports = class MiniTemplate {
   constructor (plugin) {
     this.$plugin = plugin
@@ -26,7 +24,6 @@ module.exports = class MiniTemplate {
   }
 
   getRequirePath (entry) {
-
     let entryPath = join(this.outPath, utils.getDistPath(entry))
     return utils.relative(entryPath, this.requirePath)
   }
@@ -44,9 +41,10 @@ module.exports = class MiniTemplate {
 
       let webpackRequire = `${globalRequire}("${this.getRequirePath(chunk.entryModule.resource)}")`
       // 支持独立分包，先这样处理，render hook 添加的不对
-      if (chunk.entryModule.resource && tree.getFile(chunk.entryModule.resource).isIndependent) {
-        webpackRequire = requireCode.toString() + ';\nvar installedModules = {}'
-      }
+      console.log(chunk.entryModule.resource)
+      // if (chunk.entryModule.resource ) {
+      //   webpackRequire = requireCode.toString() + ';\nvar installedModules = {}'
+      // }
 
       /**
        * 计算出 webpack-require 相对改 chunk 的路径

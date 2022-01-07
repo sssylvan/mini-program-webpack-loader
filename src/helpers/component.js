@@ -1,8 +1,5 @@
 const { getFiles, flattenDeep } = require('../utils')
-const { dirname, basename } = require('path')
-const FileTree = require('../FileTree')
-
-let tree = new FileTree()
+const { dirname, basename, extname } = require('path')
 
 async function resolveComponent (resolver, context, component) {
   component = component + '.json'
@@ -50,11 +47,9 @@ function getConponentFiles (absPath) {
   return files
 }
 
-async function componentFiles (resolver, request, content, options = {}, normalCallBack, genericsCallBack) {
+async function componentFiles (resolver, request, content, normalCallBack, genericsCallBack) {
   let context = dirname(request)
   let { componentGenerics, usingComponents, publicComponents } = content
-
-  tree.clearDepComponents(request)
 
   if (!usingComponents && !componentGenerics && !publicComponents) return []
 
@@ -80,9 +75,8 @@ async function componentFiles (resolver, request, content, options = {}, normalC
      * 这里实际上是不能确定文件是不是成功添加到编译中的
      */
     files.forEach(file => {
-      if (!tree.has(file)) asserts.push(file)
+      asserts.push(file)
     })
-    tree.addComponent(request, key, componentPath, files)
 
     return componentPath
   }
@@ -91,9 +85,6 @@ async function componentFiles (resolver, request, content, options = {}, normalC
    * 自定义组件
    */
   let normalPromises = forEachUsingComponent(usingComponents, async (key, item) => {
-    if (/^plugin:\/\//.test(item)) {
-      return tree.addComponent(request, key, '', [])
-    }
     let componentPath = await handelComponent(key, item)
     normalCallBack && normalCallBack(componentPath, key, usingComponents)
   })
@@ -110,10 +101,6 @@ async function componentFiles (resolver, request, content, options = {}, normalC
    * 抽象组件
    */
   let genericesPromises = forEachComponentGenerics(componentGenerics, async (key, element) => {
-    if (componentGenerics[element] === true) {
-      return tree.addComponent(request, element, '', [])
-    }
-
     let componentPath = await handelComponent(element, componentGenerics[element][key])
 
     genericsCallBack && genericsCallBack(componentPath, key, componentGenerics[element])
@@ -131,10 +118,10 @@ async function componentFiles (resolver, request, content, options = {}, normalC
 /**
  * 提供给 插件 使用来获取自定义组件或者页面依赖的自定义组件文件列表
  */
-module.exports.resolveFilesForPlugin = async function (resolver, jsonFiles, componentSet, options) {
+module.exports.resolveFilesForPlugin = async function (resolver, jsonFiles, componentSet) {
   for (const request of jsonFiles) {
     const content = require(request)
-    let files = await componentFiles(resolver, request, content, options)
+    let files = await componentFiles(resolver, request, content)
 
     files = flattenDeep(files)
 
@@ -142,9 +129,8 @@ module.exports.resolveFilesForPlugin = async function (resolver, jsonFiles, comp
 
     await module.exports.resolveFilesForPlugin(
       resolver,
-      files.filter(file => tree.getFile(file).isJson),
-      componentSet,
-      options
+      files.filter(file => extname(file) === '.json'),
+      componentSet
     )
   }
 }
@@ -152,7 +138,7 @@ module.exports.resolveFilesForPlugin = async function (resolver, jsonFiles, comp
 /**
  * 提供给 loader 使用来获取自定义组件或者页面依赖的自定义组件文件列表
  */
-module.exports.resolveFilesForLoader = async function (resolver, request, content, getRelativePath, options) {
+module.exports.resolveFilesForLoader = async function (resolver, request, content, getRelativePath) {
   /**
    * 写回组件的相对路径
    * @param {*} componentPath 组件的绝对路径
@@ -168,7 +154,6 @@ module.exports.resolveFilesForLoader = async function (resolver, request, conten
     resolver,
     request,
     content,
-    options,
     setRelComponent,
     setRelComponent
   )

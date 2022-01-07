@@ -15,7 +15,7 @@ const SingleEntryPlugin = require('webpack/lib/SingleEntryPlugin')
 const { extname } = require('path')
 const { join, isAbsolute } = require('path')
 
-const { options, entryNames, fileTree, chunkNames } = require('../shared/data')
+const { options, entryNames, chunkNames } = require('../shared/data')
 const utils = require('../utils')
 
 let mainContext
@@ -34,7 +34,7 @@ module.exports.getMain = () => {
  * @param {*} params
  * @param {*} callback
  */
-module.exports.beforeCompile = (compr, params, callback) => {
+module.exports.beforeCompile = (compr, callback) => {
   compiler = compr
   const entry = compiler.options.entry
   const appJsonPath = isAbsolute(entry) ? entry : join(compiler.context, entry)
@@ -47,47 +47,31 @@ module.exports.beforeCompile = (compr, params, callback) => {
   })
 }
 
-async function loadEntry (entryPath) {
-  let componentFiles = {}
-  const itemContext = dirname(entryPath)
-  const fileName = basename(entryPath, '.json')
+async function loadEntry (appJsonPath) {
+  mainEntry = appJsonPath
+  mainContext = dirname(mainEntry)
+  mainName = basename(mainEntry, '.json')
 
-  entryNames.push(fileName)
+  entryNames.push(mainName)
 
-  mainEntry = entryPath
-  mainContext = itemContext
-  mainName = fileName
+  // 获取配置信息，并设置，因为设置分包引用提取，需要先设置好
+  const appJson = require(mainEntry)
+  setAppJson(appJson, mainEntry, true)
+  // 添加页面
+  let pageFiles = reslovePagesFiles(appJson, mainContext, options)
 
-  /**
-   * 获取配置信息，并设置，因为设置分包引用提取，需要先设置好
-   */
-  const config = require(entryPath)
+  // 入口文件只打包对应的 wxss 文件 ? 啥时候打包的 ts 文件
+  let entryFiles = getFiles(mainContext, mainName, ['.wxss', '.scss', '.less'])
 
-  setAppJson(config, entryPath, true)
+  // 添加所有与这个 json 文件相关的 page 文件和 app 文件到编译中
+  addEntrys(mainContext, [pageFiles, entryFiles, mainEntry])
 
-  /**
-   * 添加页面
-   */
-  let pageFiles = reslovePagesFiles(config, itemContext, options)
-
-  /**
-   * 入口文件只打包对应的 wxss 文件
-   */
-  let entryFiles = getFiles(itemContext, fileName, ['.wxss', '.scss', '.less'])
-
-  /**
-   * 添加所有与这个 json 文件相关的 page 文件和 app 文件到编译中
-   */
-  addEntrys(itemContext, [pageFiles, entryFiles, entryPath])
-
-  fileTree.setFile(entryFiles, true /* ignore */)
-  fileTree.addEntry(entryPath)
-  ;(config.usingComponents || config.publicComponents) &&
-    pageFiles.push(entryPath)
-
-  componentFiles[itemContext] = (componentFiles[itemContext] || []).concat(
-    pageFiles.filter((file) => fileTree.getFile(file).isJson)
-  )
+  // fileTree.setFile(entryFiles, true /* ignore */)
+  // fileTree.addEntry(mainEntry)
+  if (appJson.usingComponents || appJson.publicComponents) {
+    pageFiles.push(mainEntry)
+  }
+  const componentFiles = pageFiles.filter((file) => extname(file) === '.json')
 
   let tabBar = getAppJson().tabBar
   let extfile = options.extfile
@@ -103,22 +87,16 @@ async function loadEntry (entryPath) {
     (tabBar && tabBar.list && getTabBarIcons(mainContext, tabBar.list)) || []
   )
 
-  fileTree.setFile(flattenDeep(entrys))
-
   addEntrys(mainContext, entrys)
 
-  return Promise.all(
-    Object.keys(componentFiles).map((context) => {
-      let componentSet = new Set()
+  const componentSet = new Set()
 
-      return resolveComponentsFiles(
-        resolver,
-        componentFiles[context],
-        componentSet,
-        options
-      ).then(() => addEntrys(context, Array.from(componentSet)))
-    })
+  await resolveComponentsFiles(
+    resolver,
+    componentFiles,
+    componentSet
   )
+  addEntrys(mainContext, Array.from(componentSet))
 }
 
 function setCacheGroup () {

@@ -5,7 +5,7 @@ const transXml = require('../wx/transxml')
 const { join } = require('path')
 const utils = require('../utils')
 const { getMain } = require('./beforeCompile')
-const { getIgnoreEntrys,  entryNames: enNames } = require('../shared/data')
+const { getIgnoreEntrys, entryNames: enNames } = require('../shared/data')
 
 function setEmitHook (compilation, callback) {
   let ignoreEntrys = getIgnoreEntrys()
@@ -39,7 +39,6 @@ function setEmitHook (compilation, callback) {
      * 检查一些 js 文件路径
      */
   for (const file in assets) {
-
     let tempFile = utils.getDistPath(file)
 
     if (tempFile !== file) {
