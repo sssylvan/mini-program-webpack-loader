@@ -2,19 +2,60 @@ const { DEPS_MAP, getIgnoreEntrys } = require('../shared/data')
 const fs = require('fs')
 const { join } = require('path')
 const { ConcatSource } = require('webpack-sources')
-const {
-  util: { createHash }
-} = require('webpack')
+const { util: { createHash } } = require('webpack')
 const utils = require('../utils')
 const { fileTree, entryNames: enNames } = require('../shared/data')
-const { addEntrys } = require('./beforeCompile')
-
+const { addEntrys, getResolver } = require('./beforeCompile')
+const { update: setAppJson } = require('../helpers/app')
+const { resolveFilesForPlugin: resolveComponentsFiles } = require('../helpers/component')
+const { reslovePagesFiles } = require('../helpers/page')
 let _appending = []
 /**
  * compilation 事件处理
  * @param {*} compilation
  */
 function setCompilation (compilation) {
+  // compilation.hooks.optimizeTree.tapAsync('MiniPlugin', async (chunks, modules, cb) => await optimizeTree(chunks, modules, cb))
+
+  async function optimizeTree (chunks, modules, cb) {
+    const jsonPaths = modules
+      .map((module) => module.resource)
+      .filter((jsonPath) => jsonPath && /\.json/.test(jsonPath))
+    const resolver = getResolver()
+
+    async function append (jsonPaths) {
+      jsonPaths.forEach(async (path) => {
+        const json = JSON.parse(fs.readFileSync(path, { encoding: 'utf8' }))
+
+        console.log(json)
+        let {
+          componentGenerics,
+          usingComponents,
+          pages = [],
+          subPackages = []
+        } = json
+        if (usingComponents || componentGenerics) {
+          let assets = await resolveComponentsFiles(resolver, usingComponents)
+          const jsonPaths = assets.filter((jsonPath) => jsonPath && /\.json/.test(jsonPath))
+          console.log('jsonPaths', jsonPaths)
+          await append(jsonPaths)
+          assets.forEach(a => !_appending.includes(a) && _appending.push(a))
+        }
+
+        if (pages.length || subPackages.length) {
+          let newFiles = await reslovePagesFiles(json, this.context)
+          const jsonPaths = newFiles.filter((jsonPath) => jsonPath && /\.json/.test(jsonPath))
+          console.log('jsonPaths', jsonPaths)
+          await append(jsonPaths)
+          jsonPaths.forEach(a => !_appending.includes(a) && _appending.push(a))
+          setAppJson(json, path)
+        }
+      })
+    }
+    await append(jsonPaths)
+    console.log(_appending)
+    cb()
+  }
   /**
    * 标准输出文件名称
    */

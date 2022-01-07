@@ -5,7 +5,7 @@ const transXml = require('../wx/transxml')
 const { join } = require('path')
 const utils = require('../utils')
 const { getMain } = require('./beforeCompile')
-const { getIgnoreEntrys, options, entryNames: enNames } = require('../shared/data')
+const { getIgnoreEntrys,  entryNames: enNames } = require('../shared/data')
 
 function setEmitHook (compilation, callback) {
   let ignoreEntrys = getIgnoreEntrys()

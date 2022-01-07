@@ -25,7 +25,6 @@ function filterPackages (packages, returnTure) {
  * @param {*} entry
  */
 module.exports.reslovePagesFiles = function ({ pages = [], subPackages = [] }, context, options = {}) {
-
   // 插件是对象形式的
   if (!Array.isArray(pages)) {
     pages = Object.keys(pages).map((key) => pages[key])
@@ -44,6 +43,7 @@ module.exports.reslovePagesFiles = function ({ pages = [], subPackages = [] }, c
 
     tree.addPage(page, files, isSubPkg, isIndependent)
   })
+  console.log(result)
 
   return result
 }

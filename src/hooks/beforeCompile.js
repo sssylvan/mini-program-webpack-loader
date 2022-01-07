@@ -10,21 +10,14 @@ const {
   resolveFilesForPlugin: resolveComponentsFiles
 } = require('../helpers/component')
 const { moduleOnlyUsedBySubPackage } = require('../helpers/module')
-const { getEntryConfig } = require('../helpers/entry')
 const MultiEntryPlugin = require('webpack/lib/MultiEntryPlugin')
 const SingleEntryPlugin = require('webpack/lib/SingleEntryPlugin')
 const { extname } = require('path')
+const { join, isAbsolute } = require('path')
 
-const {
-  miniEntrys,
-  options,
-  entryNames,
-  fileTree,
-  chunkNames
-} = require('../shared/data')
+const { options, entryNames, fileTree, chunkNames } = require('../shared/data')
 const utils = require('../utils')
 
-let hasLoaded = false
 let mainContext
 let mainEntry
 let mainName
@@ -43,71 +36,58 @@ module.exports.getMain = () => {
  */
 module.exports.beforeCompile = (compr, params, callback) => {
   compiler = compr
+  const entry = compiler.options.entry
+  const appJsonPath = isAbsolute(entry) ? entry : join(compiler.context, entry)
   resolver = utils.createResolver(compiler)
-  if (hasLoaded) return callback()
 
-  loadEntrys(miniEntrys).then(() => {
+  loadEntry(appJsonPath).then(() => {
     // 设置子包的 cachegroup
     options.commonSubPackages && setCacheGroup()
-    hasLoaded = true
     callback()
   })
 }
 
-async function loadEntrys (entry) {
-  let index = 0
+async function loadEntry (entryPath) {
   let componentFiles = {}
+  const itemContext = dirname(entryPath)
+  const fileName = basename(entryPath, '.json')
 
-  for (const entryPath of entry) {
-    const itemContext = dirname(entryPath)
-    const fileName = basename(entryPath, '.json')
+  entryNames.push(fileName)
 
-    entryNames.push(fileName)
-    /**
-     * 主入口
-     */
-    if (index === 0) {
-      mainEntry = entryPath
-      mainContext = itemContext
-      mainName = fileName
-      index++
-    }
+  mainEntry = entryPath
+  mainContext = itemContext
+  mainName = fileName
 
-    /**
-     * 获取配置信息，并设置，因为设置分包引用提取，需要先设置好
-     */
-    const config = await _getEntryConfig(entryPath, require(entryPath))
+  /**
+   * 获取配置信息，并设置，因为设置分包引用提取，需要先设置好
+   */
+  const config = require(entryPath)
 
-    setAppJson(config, entryPath, entryPath === mainEntry)
+  setAppJson(config, entryPath, true)
 
-    /**
-     * 添加页面
-     */
-    let pageFiles = reslovePagesFiles(config, itemContext, options)
+  /**
+   * 添加页面
+   */
+  let pageFiles = reslovePagesFiles(config, itemContext, options)
 
-    /**
-     * 入口文件只打包对应的 wxss 文件
-     */
-    let entryFiles = getFiles(itemContext, fileName, [
-      '.wxss',
-      '.scss',
-      '.less'
-    ])
+  /**
+   * 入口文件只打包对应的 wxss 文件
+   */
+  let entryFiles = getFiles(itemContext, fileName, ['.wxss', '.scss', '.less'])
 
-    /**
-     * 添加所有与这个 json 文件相关的 page 文件和 app 文件到编译中
-     */
-    addEntrys(itemContext, [pageFiles, entryFiles, entryPath])
+  /**
+   * 添加所有与这个 json 文件相关的 page 文件和 app 文件到编译中
+   */
+  addEntrys(itemContext, [pageFiles, entryFiles, entryPath])
 
-    fileTree.setFile(entryFiles, true /* ignore */)
-    fileTree.addEntry(entryPath)
-    ;(config.usingComponents || config.publicComponents) &&
-      pageFiles.push(entryPath)
+  fileTree.setFile(entryFiles, true /* ignore */)
+  fileTree.addEntry(entryPath)
+  ;(config.usingComponents || config.publicComponents) &&
+    pageFiles.push(entryPath)
 
-    componentFiles[itemContext] = (componentFiles[itemContext] || []).concat(
-      pageFiles.filter((file) => fileTree.getFile(file).isJson)
-    )
-  }
+  componentFiles[itemContext] = (componentFiles[itemContext] || []).concat(
+    pageFiles.filter((file) => fileTree.getFile(file).isJson)
+  )
 
   let tabBar = getAppJson().tabBar
   let extfile = options.extfile
@@ -167,14 +147,6 @@ function setCacheGroup () {
   }
 }
 
-async function _getEntryConfig (entry, config) {
-  let entryConfig = options.entry[entry]
-  if (!entryConfig) return config
-
-  return await getEntryConfig(entryConfig, config)
-}
-module.exports.getEntryConfig = _getEntryConfig
-
 function addEntrys (context, files) {
   let assetFiles = []
   let scriptFiles = []
@@ -204,5 +176,8 @@ function addScriptEntry (context, entrys) {
   }
 }
 
-module.exports.loadEntrys = loadEntrys
+module.exports.loadEntrys = loadEntry
 module.exports.addEntrys = addEntrys
+module.exports.getResolver = () => {
+  return resolver
+}

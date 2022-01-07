@@ -5,12 +5,7 @@ const appCode = {
 }
 
 module.exports.update = function (config, filePath, isMain) {
-  const isPlugin = (config.pages && !Array.isArray(config.pages)) || !!config.publicComponents
-  appCode[filePath] = { config, isMain, isPlugin }
-}
-
-module.exports.getPlugin = function (entry) {
-  return appCode[entry]
+  appCode[filePath] = { config, isMain }
 }
 
 module.exports.get = function () {
@@ -23,9 +18,8 @@ module.exports.get = function () {
   }
 
   for (const key in appCode) {
-    let { config: appJson, isMain, isPlugin } = appCode[key]
+    let { config: appJson, isMain } = appCode[key]
     // 如果是插件就直接返回默认数据
-    if (isPlugin) return code
 
     const {
       pages = [],
