@@ -1,14 +1,7 @@
 const { dirname, basename } = require('path')
-const { flattenDeep, getFiles } = require('../utils')
-const { reslovePagesFiles } = require('../helpers/page')
-const {
-  update: setAppJson,
-  get: getAppJson,
-  getTabBarIcons
-} = require('../helpers/app')
-const {
-  resolveFilesForPlugin: resolveComponentsFiles
-} = require('../helpers/component')
+const { flattenDeep } = require('../utils')
+const { update: setAppJson, get: getAppJson } = require('../helpers/app')
+
 const { moduleOnlyUsedBySubPackage } = require('../helpers/module')
 const MultiEntryPlugin = require('webpack/lib/MultiEntryPlugin')
 const SingleEntryPlugin = require('webpack/lib/SingleEntryPlugin')
@@ -17,6 +10,7 @@ const { join, isAbsolute } = require('path')
 
 const { options, entryNames, chunkNames } = require('../shared/data')
 const utils = require('../utils')
+const { getAssetsFromAppJson } = require('../helpers/json')
 
 let mainContext
 let mainEntry
@@ -24,7 +18,6 @@ let mainName
 const mainChunkNameTemplate = '__assets_chunk_name__'
 let mainChunkNameIndex = 0
 let compiler
-let resolver
 
 module.exports.getMain = () => {
   return { mainName, mainEntry, mainContext }
@@ -38,65 +31,23 @@ module.exports.beforeCompile = (compr, callback) => {
   compiler = compr
   const entry = compiler.options.entry
   const appJsonPath = isAbsolute(entry) ? entry : join(compiler.context, entry)
-  resolver = utils.createResolver(compiler)
+  // loadEntry(appJsonPath).then(() => {
+  //   // 设置子包的 cachegroup
+  //   options.commonSubPackages && setCacheGroup()
+  //   callback()
+  // })/get
 
-  loadEntry(appJsonPath).then(() => {
-    // 设置子包的 cachegroup
-    options.commonSubPackages && setCacheGroup()
-    callback()
-  })
-}
-
-async function loadEntry (appJsonPath) {
+  const resolver = utils.createResolver(compiler)
   mainEntry = appJsonPath
   mainContext = dirname(mainEntry)
   mainName = basename(mainEntry, '.json')
-
   entryNames.push(mainName)
-
-  // 获取配置信息，并设置，因为设置分包引用提取，需要先设置好
   const appJson = require(mainEntry)
   setAppJson(appJson, mainEntry, true)
-  // 添加页面
-  let pageFiles = reslovePagesFiles(appJson, mainContext, options)
-
-  // 入口文件只打包对应的 wxss 文件 ? 啥时候打包的 ts 文件
-  let entryFiles = getFiles(mainContext, mainName, ['.wxss', '.scss', '.less'])
-
-  // 添加所有与这个 json 文件相关的 page 文件和 app 文件到编译中
-  addEntrys(mainContext, [pageFiles, entryFiles, mainEntry])
-
-  // fileTree.setFile(entryFiles, true /* ignore */)
-  // fileTree.addEntry(mainEntry)
-  if (appJson.usingComponents || appJson.publicComponents) {
-    pageFiles.push(mainEntry)
-  }
-  const componentFiles = pageFiles.filter((file) => extname(file) === '.json')
-
-  let tabBar = getAppJson().tabBar
-  let extfile = options.extfile
-
-  let entrys = [
-    getFiles(mainContext, 'project.config', ['.json']), // project.config.json
-    extfile === true ? getFiles(mainContext, 'ext', ['.json']) : [], // ext.json 只有 extfile 为 true 的时候才加载主包的 ext.json
-    getFiles(mainContext, mainName, ['.js', '.ts']) // 打包主入口对应的 js 文件
-  ]
-
-  // tabBar icons
-  entrys = entrys.concat(
-    (tabBar && tabBar.list && getTabBarIcons(mainContext, tabBar.list)) || []
-  )
-
-  addEntrys(mainContext, entrys)
-
-  const componentSet = new Set()
-
-  await resolveComponentsFiles(
-    resolver,
-    componentFiles,
-    componentSet
-  )
-  addEntrys(mainContext, Array.from(componentSet))
+  getAssetsFromAppJson(appJsonPath, resolver).then((files) => {
+    addEntrys(mainContext, files)
+    callback()
+  })
 }
 
 function setCacheGroup () {
@@ -154,8 +105,4 @@ function addScriptEntry (context, entrys) {
   }
 }
 
-module.exports.loadEntrys = loadEntry
 module.exports.addEntrys = addEntrys
-module.exports.getResolver = () => {
-  return resolver
-}

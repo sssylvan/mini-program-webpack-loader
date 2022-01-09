@@ -1,18 +1,18 @@
 const { extname } = require('path')
 const CONFIG = {
   wx: {
-    TScss(path) {
+    TScss (path) {
       return path.replace('.scss', '.wxss')
     },
 
-    TPcss(path) {
+    TPcss (path) {
       return path.replace('.pcss', '.wxss')
     },
 
-    TLess(path) {
+    TLess (path) {
       return path.replace('.less', '.wxss')
-    },
-  },
+    }
+  }
 }
 
 module.exports.toTargetPath = function (file) {

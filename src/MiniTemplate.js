@@ -4,7 +4,6 @@ const {
   ConcatSource,
   RawSource
 } = require('webpack-sources')
-const requireCode = require('./lib/require')
 
 module.exports = class MiniTemplate {
   constructor (plugin) {

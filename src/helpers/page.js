@@ -1,18 +1,13 @@
 const { join } = require('path')
 const { getFiles } = require('../utils')
-const FileTree = require('../FileTree')
 
-let tree = new FileTree()
-
-function filterPackages (packages, returnTure) {
+function filterPackages (packages) {
   let result = []
 
   packages.forEach(({ root, pages, independent }) => {
     pages.forEach(page => {
       page = join(root, page)
-      if (returnTure(page)) {
-        result.push({ page, isSubPkg: !!root, isIndependent: !!independent })
-      }
+      result.push({ page, isSubPkg: !!root, isIndependent: !!independent })
     })
   })
 
@@ -31,19 +26,14 @@ module.exports.reslovePagesFiles = function ({ pages = [], subPackages = [] }, c
   }
 
   const packages = [...subPackages, { root: '', pages }]
-
-  const newPages = filterPackages(packages, page => !tree.hasPage(page))
-
+  const newPages = filterPackages(packages)
   const result = []
 
   newPages.forEach(({ page, isSubPkg, isIndependent }) => {
     let files = getFiles(context, page)
 
-    files.forEach(file => !tree.has(file) && result.push(file))
-
-    tree.addPage(page, files, isSubPkg, isIndependent)
+    files.forEach(file => result.push(file))
   })
-  console.log(result)
 
   return result
 }

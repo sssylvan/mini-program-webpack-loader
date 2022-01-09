@@ -17,7 +17,7 @@ const { ProgressPlugin } = require('webpack')
 const MiniTemplate = require('./MiniTemplate')
 
 const { get: getAppJson } = require('./helpers/app')
-const { setMiniEntrys, miniEntrys } = require('./shared/data')
+const { setMiniEntrys } = require('./shared/data')
 
 class MiniPlugin {
   apply (compiler) {
@@ -37,7 +37,6 @@ class MiniPlugin {
     this.miniEntrys = setMiniEntrys(compiler)
     // const entry = compiler.options.entry
     // const appJson = isAbsolute(entry) ? entry : join(compiler.context, entry)
-    console.log(',miniEntrys', miniEntrys)
 
     // 设置计算打包后路径需要的参数（在很多地方需要使用）
     utils.setDistParams(
@@ -53,7 +52,7 @@ class MiniPlugin {
     this.compiler.hooks.beforeCompile.tapAsync('MiniPlugin', (_, callback) => beforeCompile(compiler, callback)
     )
     this.compiler.hooks.compilation.tap('MiniPlugin', (compilation, callback) =>
-      setCompilation(compilation, callback)
+      setCompilation(compiler, compilation, callback)
     )
     this.compiler.hooks.emit.tapAsync('MiniPlugin', (compilation, callback) =>
       setEmitHook(compilation, callback)
