@@ -40,7 +40,7 @@ module.exports = class MiniTemplate {
 
       let webpackRequire = `${globalRequire}("${this.getRequirePath(chunk.entryModule.resource)}")`
       // 支持独立分包，先这样处理，render hook 添加的不对
-      console.log(chunk.entryModule.resource)
+      // console.log(chunk.entryModule.resource)
       // if (chunk.entryModule.resource ) {
       //   webpackRequire = requireCode.toString() + ';\nvar installedModules = {}'
       // }

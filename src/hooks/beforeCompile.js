@@ -35,7 +35,7 @@ module.exports.beforeCompile = (compr, callback) => {
   //   // 设置子包的 cachegroup
   //   options.commonSubPackages && setCacheGroup()
   //   callback()
-  // })/get
+  // })/
 
   const resolver = utils.createResolver(compiler)
   mainEntry = appJsonPath
@@ -45,6 +45,8 @@ module.exports.beforeCompile = (compr, callback) => {
   const appJson = require(mainEntry)
   setAppJson(appJson, mainEntry, true)
   getAssetsFromAppJson(appJsonPath, resolver).then((files) => {
+    console.log('=========beforeCompile', files)
+    options.commonSubPackages && setCacheGroup()
     addEntrys(mainContext, files)
     callback()
   })
@@ -85,7 +87,7 @@ function addEntrys (context, files) {
     /\.[j|t]s$/.test(file) ? scriptFiles.push(file) : assetFiles.push(file)
   )
 
-  addAssetsEntry(context, assetFiles)
+  // addAssetsEntry(context, assetFiles)
   addScriptEntry(context, scriptFiles)
 }
 

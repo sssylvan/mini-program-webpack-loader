@@ -7,7 +7,7 @@ async function getAssetsFromAppJson (appJsonPath, resolver) {
   let assets = await getAssetsFromPage(appJsonPath, resolver)
   const appJson = require(appJsonPath)
   delete require.cache[appJsonPath]
-  let { pages, tabBar, subPackages } = appJson
+  let { pages, subPackages } = appJson
   if (pages) {
     if (subPackages) {
       const subPackagePages = flattenDeep(subPackages.map(item => item.pages.map(p => item.root + p)))
@@ -19,18 +19,13 @@ async function getAssetsFromAppJson (appJsonPath, resolver) {
     assets = assets.concat(pageFiles)
   }
 
-  if (tabBar && tabBar.list) {
-    const tabBarImgs = getTabBarIcons(dir, tabBar.list)
-    assets = assets.concat(tabBarImgs)
-  }
-
   return assets
 }
 
 async function getAssetsFromPage (absPath, resolver) {
   const dir = dirname(absPath)
   const fileName = basename(absPath, '.json')
-  const pageFiles = getFiles(dir, fileName)
+  const pageFiles = getFiles(dir, fileName, ['.ts', '.js', '.json'])
   let componentsFiles = []
 
   const { usingComponents } = require(absPath)
@@ -41,18 +36,6 @@ async function getAssetsFromPage (absPath, resolver) {
     componentsFiles = flattenDeep(await Promise.all(realPaths.map(async p => await getAssetsFromPage(p, resolver))))
   }
   return pageFiles.concat(componentsFiles)
-}
-
-function getTabBarIcons (context, tabs) {
-  let files = []
-  for (const tab of tabs) {
-    let file = join(context, tab.iconPath)
-    files.push(file)
-    file = join(context, tab.selectedIconPath)
-    files.push(file)
-  }
-
-  return files
 }
 
 exports.getAssetsFromAppJson = getAssetsFromAppJson

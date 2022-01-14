@@ -10,7 +10,7 @@ function setEmitHook (compilation, callback) {
 
     if (tempFile !== file) {
       //  node_modules/@vant/weapp/dist/icon/index.json -> @vant/weapp/dist/icon/index.json
-      console.log('tempFile !== file', file, tempFile)
+      // console.log('tempFile !== file', file, tempFile)
       assets[tempFile] = assets[file]
       delete assets[file]
     }
